@@ -1,0 +1,19 @@
+{
+  "name": "studiogallery-electron",
+  "version": "1.0.0",
+  "description": "Desktop wrapper shell for StudioGallery client proofing dashboard.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [
+    "electron",
+    "proofing",
+    "gallery"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^42.3.0"
+  }
+}
