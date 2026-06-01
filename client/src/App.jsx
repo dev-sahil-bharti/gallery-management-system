@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { AlertCircle, HelpCircle, X, CheckSquare, Settings as SettingsIcon } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { AlertCircle, HelpCircle, X } from 'lucide-react';
 
 // Hooks
 import { useGalleryCreator } from './hooks/useGalleryCreator';
@@ -37,7 +37,7 @@ function App() {
   const highResInputRef = useRef(null);
 
   // Global Menubar Action Handler
-  const handleMenuAction = (action) => {
+  const handleMenuAction = useCallback((action) => {
     switch (action) {
       // FILE ACTIONS
       case 'new_session':
@@ -55,7 +55,7 @@ function App() {
         }, 100);
         break;
 
-      case 'export_prefs':
+      case 'export_prefs': {
         // Trigger photographer settings backup download
         const backupData = {
           appName: "StudioGallery",
@@ -76,11 +76,20 @@ function App() {
         document.body.removeChild(link);
         alert('Default proof settings backed up successfully!');
         break;
+      }
 
       case 'exit':
         if (window.confirm("Are you sure you want to exit StudioGallery?")) {
           alert("Main process close message dispatched. Running inside desktop package.");
         }
+        break;
+
+      case 'sync_album':
+        setActiveTab('receiver');
+        break;
+
+      case 'manage_data':
+        setActiveTab('data');
         break;
 
       // VIEW ACTIONS
@@ -104,7 +113,7 @@ function App() {
         break;
 
       // SELECTION ACTIONS
-      case 'select_all':
+      case 'select_all': {
         if (activeTab !== 'process' || !matcher.selectionData) {
           alert("Please upload selection files inside the 'Selection Matcher' tab first.");
           return;
@@ -115,6 +124,7 @@ function App() {
         matcher.setMatchedUnselected([]);
         alert("Force matched all loaded high-res images as selected.");
         break;
+      }
 
       case 'clear_matches':
         if (activeTab !== 'process' || !matcher.selectionData) {
@@ -124,7 +134,7 @@ function App() {
         matcher.resetSelectionProcessor();
         break;
 
-      case 'invert_selections':
+      case 'invert_selections': {
         if (activeTab !== 'process' || !matcher.selectionData) {
           alert("Please upload selection files inside the 'Selection Matcher' tab first.");
           return;
@@ -136,9 +146,10 @@ function App() {
         matcher.setMatchedUnselected(invertedUnsel);
         alert("Inverted selections matched!");
         break;
+      }
 
       // TOOLS ACTIONS
-      case 'tool_lightroom':
+      case 'tool_lightroom': {
         if (activeTab !== 'process' || !matcher.selectionData) {
           alert("No active selections loaded. Import a JSON selection file first.");
           return;
@@ -146,6 +157,7 @@ function App() {
         const lrQuery = matcher.getLightroomFilterString();
         copyToClipboard(lrQuery, "Lightroom search string copied!");
         break;
+      }
 
       case 'tool_rename':
         alert("Batch Renaming requires local shell access. Please run within packaged Electron environments to execute.");
@@ -154,6 +166,26 @@ function App() {
       case 'tool_cipher':
         alert("StudioGallery utilizes high-performance scrambler shift ciphers. Encrypted proofs are decrypted only after a client inputs a valid matching photographer passcode.");
         break;
+
+      case 'compile_gallery': {
+        if (creator.creatorImages.length === 0) {
+          setActiveTab('create');
+          alert("Please upload proof photos first inside the Gallery Creator tab.");
+          return;
+        }
+        setActiveTab('create');
+        creator.compileGallery();
+        break;
+      }
+
+      case 'clear_cache': {
+        if (window.confirm("Are you sure you want to clear temporary previews and local cached session logs?")) {
+          creator.clearAllCreatorImages();
+          matcher.resetSelectionProcessor();
+          alert("Successfully cleared IndexedDB temporary assets and caches!");
+        }
+        break;
+      }
 
       // SETTINGS ACTIONS
       case 'settings_profile':
@@ -189,7 +221,7 @@ function App() {
       default:
         console.warn("Unresolved menubar action:", action);
     }
-  };
+  }, [activeTab, creator, matcher]);
 
   // Callback to sync remote album details directly into the Matcher State
   const handleImportRemoteJson = (jsonData) => {
@@ -226,6 +258,54 @@ function App() {
       matcher.setMatchedUnselected(unselectedMatches);
     }
   };
+
+  // Keyboard Shortcuts Hook integration
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl + N (New proof session)
+      if (e.ctrlKey && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault();
+        handleMenuAction('new_session');
+      }
+      // Ctrl + O (Open selection JSON)
+      if (e.ctrlKey && (e.key === 'o' || e.key === 'O')) {
+        e.preventDefault();
+        handleMenuAction('open_json');
+      }
+      // Ctrl + B (Toggle Sidebar Config)
+      if (e.ctrlKey && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        handleMenuAction('toggle_sidebar');
+      }
+      // Ctrl + A (Select All matches - Selection Matcher tab only)
+      if (e.ctrlKey && (e.key === 'a' || e.key === 'A')) {
+        if (activeTab === 'process') {
+          e.preventDefault();
+          handleMenuAction('select_all');
+        }
+      }
+      // Ctrl + I (Invert selections - Selection Matcher tab only)
+      if (e.ctrlKey && (e.key === 'i' || e.key === 'I')) {
+        if (activeTab === 'process') {
+          e.preventDefault();
+          handleMenuAction('invert_selections');
+        }
+      }
+      // Ctrl + Shift + C (Compile Standalone HTML)
+      if (e.ctrlKey && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        handleMenuAction('compile_gallery');
+      }
+      // Ctrl + Shift + Del (Wipe Cache)
+      if (e.ctrlKey && e.shiftKey && e.key === 'Delete') {
+        e.preventDefault();
+        handleMenuAction('clear_cache');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, creator.creatorImages, matcher.highResImages, matcher.selectionData, handleMenuAction]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white font-sans overflow-x-hidden">
@@ -354,7 +434,7 @@ function App() {
             TAB 4: DATA MANAGEMENT
             ============================================================== */}
         {activeTab === 'data' && (
-          <DataManagement />
+          <DataManagement creator={creator} matcher={matcher} setActiveTab={setActiveTab} />
         )}
 
       </main>
