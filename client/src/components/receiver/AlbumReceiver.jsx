@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Radio, Download, CloudLightning, RefreshCw, CheckCircle, Search, AlertCircle } from 'lucide-react';
 
 export const AlbumReceiver = ({ onImportJsonData, setActiveTab }) => {
